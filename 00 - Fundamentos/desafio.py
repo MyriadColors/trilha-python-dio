@@ -1,11 +1,37 @@
 import json
 
 cidades_estados = json.load(open("./dados/cidades_estados.json", encoding="utf-8"))
-siglas = list(cidades_estados["estados"][0].keys())[1:]
-nomes_estados = list(cidades_estados["estados"][1].values())[1:]
 
-def procurar_cidades(sigla):
-    return cidades_estados["estados"][siglas.index(sigla) + 1]["cidades"]
+siglas = []
+
+for estado in cidades_estados["estados"]:
+    siglas.append(estado["sigla"])
+
+def cidade_existe_no_estado(sigla_estado, nome_cidade):
+    for estado in cidades_estados["estados"]:
+        if estado["sigla"] == sigla_estado:
+            if nome_cidade in estado["cidades"]:
+                return True
+            else:
+                return False
+
+    # Se a sigla do estado não for encontrada
+    return False
+
+def listar_usuários(usuarios):
+    print("==========================================")
+    for usuario in usuarios:
+            print(f"Nome: {usuario['nome']}")
+            print("Endereço: ")
+            print(f"Logradouro: {usuario['endereço']['logradouro']}")
+            print(f"Número: {usuario['endereço']['numero']}")
+            print(f"Bairro: {usuario['endereço']['bairro']}")
+            print(f"Sigla da Cidade: {usuario['endereço']['sigla']}")
+            print(f"Cidade: {usuario['endereço']['nome_cidade']}")
+            print(f"Data de nascimento: {usuario['data_nascimento']}")
+            print(f"CPF: {usuario['cpf']}")
+            print("==========================================")
+
 
 def validar_string(string, tipo_de_dado = ""):
     if not string:
@@ -71,23 +97,6 @@ def validar_string(string, tipo_de_dado = ""):
         if len(string) != 2:
             print("Operação falhou! O campo deve conter 2 letras.")
             return False
-        if string not in siglas:
-            print("Operação falhou! O campo deve conter uma sigla de estado.")
-            print("Segue a lista de siglas disponíveis: \n", siglas)
-            return False
-        
-    if tipo_de_dado == "estado":
-        if string not in nomes_estados:
-            print("Operação falhou! O campo deve conter o nome de um estado brasileiro.")
-            print("Segue a lista de estados disponíveis: \n", nomes_estados)
-            return False
-        
-    if tipo_de_dado == "endereço":
-        # Formato: logradouro, numero - bairro - cidade/sigla estado
-        if str.count(string, "-") != 2 and str.count(string, ",") != 1 and str.count(string, " ") != 6 and str.count(string, "/") != 1:
-            print("Operação falhou! O campo deve conter o seguinte formato: logradouro, numero - bairro - cidade/sigla estado")
-            return False
-        
     
     return True
 
@@ -140,12 +149,11 @@ def criar_usuario(usuarios):
     logradouro = ""
     numero = ""
     bairro = ""
-    cidade = ""
     sigla = ""
-    estado = ""
+    nome_cidade = ""
     endereço = ""
 
-    lista_cpfs = list(map(lambda usuario: usuario["cpf"], usuarios)) if not len(usuarios) else None
+    lista_cpfs = list(map(lambda usuario: usuario["cpf"], usuarios))
 
     while True:
         nome = input("Nome completo: ")
@@ -160,13 +168,14 @@ def criar_usuario(usuarios):
     while True:
         cpf = input("CPF: ")
         if validar_string(cpf, "cpf"):
-            break
+            # Verificar se o CPF existe
+            if cpf in lista_cpfs:
+                print("Operação falhou! O CPF deve ser único.")
+                continue
+            else:
+                break
     
-    # Verificar se o CPF existe
-    if cpf in lista_cpfs:
-        print("Operação falhou! O CPF deve ser único.")
-        return usuarios
-
+    
     while True:
         logradouro = input("Logradouro: ")
         if validar_string(logradouro, "logradouro"):
@@ -183,73 +192,158 @@ def criar_usuario(usuarios):
             break
 
     while True:
-        cidade = input("Cidade: ")
-        if validar_string(cidade):
-            break
-
-    while True:
         sigla = input("Sigla: ")
         if validar_string(sigla, "sigla"):
-            break
+            if sigla in siglas:
+                break
+            else:
+                print("Operação falhou! Sigla inválida.")
+                continue
 
     while True:
-        estado = input("Estado: ")
-        if validar_string(estado, "estado"):
-            break
-
-    while True:
-        endereço = str.join(" ", (logradouro, numero, bairro, cidade, sigla, estado))
-        if validar_string(endereço, "endereço"):
-            break
+        nome_cidade = input("Cidade: ")
+        if validar_string(nome_cidade):
+            if cidade_existe_no_estado(sigla, nome_cidade):
+                break
+            else:
+                print("Operação falhou! Cidade não encontrada.")
+                continue
     
+    # Formato: logradouro, numero - bairro - cidade/sigla
+    endereço = str.join(" ", (logradouro, numero, bairro, nome_cidade, sigla))
     usuarios.append({"nome": nome, "data_nascimento": data_nascimento, "cpf": cpf, "endereço": endereço})
     return usuarios
-
-    
-menu = """
-
-[u] Criar Usuário
-[d] Depositar
-[s] Sacar
-[e] Extrato
-[q] Sair
-
-=> """
-
-saldo = 0
-limite = 500
-extrato = ""
-numero_saques = 0
-LIMITE_SAQUES = 3
-usuarios = []
-
-while True:
-
-    opcao = input(menu)
-
-    if opcao == "u":
-        usuarios = criar_usuario(usuarios)
-    elif opcao == "d":
-        valor = ""
-        while True:
-            valor = input("Informe o valor do depósito: ")
-            if validar_string(valor, "float"):
-                break
-        extrato, saldo = depositar(float(valor), saldo, extrato)
-
-    elif opcao == "s":
-        valor = ""
-        while True:
-            valor = input("Informe o valor do saque: ")
-            if validar_string(valor, "float"):
-                break
-        extrato, saldo, numero_saques = sacar(float(valor), saldo, limite, extrato, numero_saques, LIMITE_SAQUES)
-
-    elif opcao == "e":
-        mostrar_extrato(extrato, saldo)
-
-    elif opcao == "q":
+def criar_conta(usuarios, contas):
+    cpf = 0
+    usuário = {}
+    while True:
+        cpf = input("Numero de cpf do usuário (-1 para lista de usuários, -2 para sair): ")
+        usuario = {}
+        if validar_string(cpf, "cpf"):
+            # Verificar se o CPF existe
+            for usuario in usuarios:
+                if usuario["cpf"] == cpf:
+                    usuários = usuario
+                    break
+                else:
+                    print("Operação falhou! Usuário não encontrado.")
+                    continue
+        else:
+            if int(cpf) == -1:
+                listar_usuários(usuarios)
+                continue
+            elif int(cpf) == -2:
+                return contas
         break
+    
+    usuario_selecionado: dict = {}
 
-    else:
-        print("Operação inválida, por favor selecione novamente a operação desejada.")
+    for usuario in usuarios:
+        if usuario["cpf"] == cpf:
+            usuario_selecionado = usuario
+            break
+    print(f"Usuario selecionado: {usuario_selecionado["nome"]}")
+
+    agencia = "0001"
+    conta = len(contas) + 1
+    contas.append({"agencia": agencia, "conta": conta, "usuario": usuario})
+
+    return contas
+
+def listar_contas(contas):
+    print("==========================================")
+    for conta in contas:
+        print(f"Agência: {conta['agencia']}")
+        print(f"Conta: {conta['conta']}")
+        print(f"Titular: {conta['usuario']['nome']}")
+        print("==========================================")
+
+def main():
+
+    menu = """
+
+    [u] Criar Usuário
+    [lu] listar Usuários
+    [c] Criar Conta
+    [lc] Listar Contas
+    [d] Depositar
+    [s] Sacar
+    [e] Extrato
+    [q] Sair
+
+    => """
+
+    saldo = 0
+    limite = 500
+    extrato = ""
+    numero_saques = 0
+    LIMITE_SAQUES = 3
+    # Usuários pre-criados para testes
+    usuarios = [
+        {
+            "nome": "Guilherme",
+            "data_nascimento": "01-01-2000",
+            "cpf": "11111111111",
+            "endereço": {
+                "logradouro": "Rua das Laranjeiras",
+                "numero": "123",
+                "bairro": "Centro",
+                "nome_cidade": "São Paulo",
+                "sigla": "SP"
+            }
+        },
+        {
+            "nome": "Joaquim",
+            "data_nascimento": "01-01-1990",
+            "cpf": "22222222222",
+            "endereço": {
+                "logradouro": "Rua das Margaridas",
+                "numero": "456",
+                "bairro": "Centro",
+                "nome_cidade": "São Paulo",
+                "sigla": "SP"
+            }
+        }
+    ]
+    contas = []
+
+    while True:
+
+        opcao = input(menu)
+
+        if opcao == "u":
+            usuarios = criar_usuario(usuarios)
+        elif opcao == "lu":
+            listar_usuários(usuarios)
+        elif opcao == "c":
+            contas = criar_conta(usuarios, contas)
+        elif opcao == "lc":
+            listar_contas(contas)
+            
+        elif opcao == "d":
+            valor = ""
+            while True:
+                valor = input("Informe o valor do depósito: ")
+                if validar_string(valor, "float"):
+                    break
+            extrato, saldo = depositar(float(valor), saldo, extrato)
+
+        elif opcao == "s":
+            valor = ""
+            while True:
+                valor = input("Informe o valor do saque: ")
+                if validar_string(valor, "float"):
+                    break
+            extrato, saldo, numero_saques = sacar(float(valor), saldo, limite, extrato, numero_saques, LIMITE_SAQUES)
+
+        elif opcao == "e":
+            mostrar_extrato(extrato, saldo)
+
+        elif opcao == "q":
+            break
+
+        else:
+            print("Operação inválida, por favor selecione novamente a operação desejada.")
+
+if __name__ == "__main__":
+    main()
