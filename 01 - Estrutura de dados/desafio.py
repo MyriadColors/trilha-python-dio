@@ -1,5 +1,181 @@
 import textwrap
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
+@dataclass
+class FormatoData:
+    _ano: int
+    _mes: int
+    _dia: int
+
+    def __str__(self) -> str:
+        return f"{self.dia}-{self.mes}-{self.ano}"
+    
+    @property
+    def ano(self) -> int:
+        return self._ano
+    
+    @property
+    def mes(self) -> int:
+        return self._mes
+    
+    @property
+    def dia(self) -> int:
+        return self._dia
+
+class PessoaFisica:
+
+    def __init__(self, nome: str, cpf: str, data_nascimento: FormatoData):
+        self.nome = nome
+        self.cpf = cpf
+        self.data_nascimento = data_nascimento
+
+@dataclass
+class ContaCorrente:
+    _limite: float
+    _limite_saques: int
+
+    def __str__(self) -> str:
+        return f"Limite: {self.limite} - Limite de saques: {self.limite_saques}"
+
+    @property
+    def limite(self) -> float:
+        return self._limite
+    
+    @property
+    def limite_saques(self) -> int:
+        return self._limite_saques
+
+class Cliente:
+    def __init__(self, endereço: str, contas: list['Conta']):
+        self._endereço = endereço
+        self._contas = contas
+    
+    @property
+    def endereço(self) -> str:
+        return self._endereço
+
+    @property
+    def contas(self) -> list['Conta']:
+        return self._contas
+    
+    def realizar_transferencia(conta_origem: 'Conta', valor: float, conta_destino: 'Conta'):
+        conta_origem.sacar(valor)
+        conta_destino.depositar(valor)
+
+class Transacao(ABC):
+    @property
+    @abstractmethod
+    def valor(self) -> float:
+        pass
+
+    @abstractmethod
+    def registrar(conta: 'Conta'):
+        pass
+
+    @abstractmethod
+    def __str__(self):
+        pass
+
+class Deposito(Transacao):
+    def __init__(self, valor: float):
+        self._valor = valor
+
+    @property
+    def valor(self) -> float:
+        return self._valor
+
+    def registrar(self, conta: 'Conta'):
+        sucesso = conta.depositar(self._valor)
+        if not sucesso:
+            print('Falha na operação de depósito.')
+        else:
+            conta.historico.adicionar_transacao(self)
+
+    def __str__(self):
+        return f'Depósito de R${self._valor:.2f}'
+
+class Saque(Transacao):
+    def __init__(self, valor: float):
+        self._valor = valor
+
+    @property
+    def valor(self) -> float:
+        return self._valor
+
+    def registrar(self, conta: 'Conta'):
+        sucesso = conta.sacar(self._valor)
+        if not sucesso:
+            print('Falha na operação de saque.')
+        else:
+            conta.set_saldo(conta.saldo - self._valor)
+            conta.historico.adicionar_transacao(self)
+    
+    def __str__(self):
+        return f'Saque de R${self._valor:.2f}'
+
+@dataclass
+class Historico:
+    _transacoes: list['Transacao']
+    
+    @classmethod
+    def adicionar_transacao(self, transacao: 'Transacao'):
+        self._transacoes.append(transacao)
+
+    @property
+    def transacoes(self) -> list['Transacao']:
+        return self._transacoes
+
+class Conta:
+    def __init__(self):
+        self._saldo: float = 0
+        self._numero: int = 0
+        self._agencia: str = '0001'
+        self._historico: 'Historico' = None
+        self._cliente: 'Cliente' = None
+
+    @property
+    def saldo(self) -> float:
+        return self._saldo
+
+    def set_saldo(self, valor: float):
+        self._saldo = valor
+
+    @property
+    def numero(self) -> int:
+        return self._numero
+
+    @property
+    def agencia(self) -> str:
+        return self._agencia
+    
+    @property
+    def historico(self) -> 'Historico':
+        return self._historico
+    
+    @property
+    def cliente(self) -> 'Cliente':
+        return self._cliente
+
+    @classmethod
+    def nova_conta(cls, cliente: 'Cliente', numero: int) -> 'Conta':
+        conta = cls()
+        conta._numero = numero
+        conta._cliente = cliente
+        return conta
+    
+    def sacar(self, valor: float) -> bool:
+        if self._saldo < valor:
+            return False
+        else:
+            return True
+    
+    def depositar(self, valor: float) -> bool:
+        if valor <= 0:
+            print("Valor inválido para depósito: deve ser um decimal positivo.")
+            return False
+        else:
+            return True
 
 def menu():
     menu = """\n
